@@ -38,8 +38,9 @@ import (
 	"math"
 	"strconv"
 
-	"code.google.com/p/freetype-go/freetype"
-	"code.google.com/p/freetype-go/freetype/raster"
+	"golang.org/x/image/font"
+	"golang.org/x/image/math/fixed"
+	"github.com/golang/freetype"
 )
 
 const (
@@ -74,7 +75,7 @@ func Placeholder(text, ttfPath string, foreground, background color.RGBA, width,
 	if err != nil {
 		return nil, err
 	}
-	font, err := freetype.ParseFont(fontBytes)
+	f, err := freetype.ParseFont(fontBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -86,24 +87,24 @@ func Placeholder(text, ttfPath string, foreground, background color.RGBA, width,
 
 	c := freetype.NewContext()
 	c.SetDPI(dpi)
-	c.SetFont(font)
+	c.SetFont(f)
 	c.SetFontSize(testFontSize)
 	c.SetSrc(fg_img)
 	c.SetDst(testImg)
 	c.SetClip(testImg.Bounds())
-	c.SetHinting(freetype.NoHinting)
+	c.SetHinting(font.HintingNone)
 
 	// first draw with testFontSize to get the text extent
-	var textExtent raster.Point
-	drawPoint := freetype.Pt(0, int(c.PointToFix32(testFontSize)>>8))
+	var textExtent fixed.Point26_6
+	drawPoint := freetype.Pt(0, int(c.PointToFixed(testFontSize)>>8))
 	textExtent, err = c.DrawString(text, drawPoint)
 	if err != nil {
 		return nil, err
 	}
 
 	// calculate font scales to stay within the bounds
-	scaleX := float64(c.PointToFix32(float64(width)*maxTextBoundsToImageRatioX)) / float64(textExtent.X)
-	scaleY := float64(c.PointToFix32(float64(height)*maxTextBoundsToImageRatioY)) / float64(textExtent.Y)
+	scaleX := float64(c.PointToFixed(float64(width)*maxTextBoundsToImageRatioX)) / float64(textExtent.X)
+	scaleY := float64(c.PointToFixed(float64(height)*maxTextBoundsToImageRatioY)) / float64(textExtent.Y)
 
 	fontsize := testFontSize * math.Min(scaleX, scaleY)
 
@@ -119,8 +120,8 @@ func Placeholder(text, ttfPath string, foreground, background color.RGBA, width,
 
 	// finally draw the centered text
 	drawPoint = freetype.Pt(
-		int(c.PointToFix32(float64(width)/2.0)-textExtent.X/2)>>8,
-		int(c.PointToFix32(float64(height)/2.0+fontsize/2.6))>>8)
+		int(c.PointToFixed(float64(width)/2.0)-textExtent.X/2)>>8,
+		int(c.PointToFixed(float64(height)/2.0+fontsize/2.6))>>8)
 
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 	draw.Draw(img, img.Bounds(), bg_img, image.ZP, draw.Src)
